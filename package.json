@@ -1,0 +1,55 @@
+{
+  "name": "@local/dsh-visual-sandbox",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Live, annotatable UI preview for DeepSeek Harness: four preview frames, element-level Edit UI, and exact UI targets delivered to the agent.",
+  "author": "Suren Khachatryan",
+  "license": "MIT",
+  "homepage": "https://github.com/Surenkh/dsh-visual-sandbox#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Surenkh/dsh-visual-sandbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Surenkh/dsh-visual-sandbox/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "visual-sandbox",
+    "ui-preview",
+    "annotations",
+    "design-review"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "docs/banner.svg",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  }
+}

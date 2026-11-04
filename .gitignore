@@ -1,0 +1,24 @@
+# Zero-dependency runtime artifacts
+node_modules/
+
+# The local profile link file used when developing against a Harness install
+.profile-link.json
+
+# One-off credentials handed to the toolchain; never committed
+.github-token
+.token
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Logs and scratch output
+*.log
+npm-debug.log*
+pnpm-debug.log*

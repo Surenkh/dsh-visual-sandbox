@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Visual Sandbox & Targeted Editor",
+    "description": "Preview a workspace page or localhost URL in the right sidebar, annotate exact UI targets, and send them to the agent for surgical edits."
+  }
+}

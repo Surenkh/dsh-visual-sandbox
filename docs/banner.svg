@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-labelledby="banner-title banner-desc">
+  <title id="banner-title">Visual Sandbox — annotatable UI preview for DeepSeek Harness</title>
+  <desc id="banner-desc">Dark banner with the Visual Sandbox mark, the words Visual Sandbox, and a line reading: point at a block, say what changes, let the agent edit only that block.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#080e1a"/>
+      <stop offset="0.55" stop-color="#0b1424"/>
+      <stop offset="1" stop-color="#0e1a2e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3b82f6" stop-opacity="0.32"/>
+      <stop offset="0.65" stop-color="#3b82f6" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16294a"/>
+      <stop offset="1" stop-color="#0d1a30"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3a5f"/>
+      <stop offset="1" stop-color="#122036"/>
+    </linearGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.4" cy="1.4" r="1.1" fill="#2b4368" fill-opacity="0.35"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#dots)"/>
+  <ellipse cx="120" cy="160" rx="330" ry="230" fill="url(#glow)"/>
+
+  <!-- mark -->
+  <g transform="translate(68 116)">
+    <rect x="0" y="0" width="88" height="88" rx="21" fill="url(#mark)" stroke="#263d5e" stroke-width="1.6"/>
+    <rect x="14.5" y="15" width="59" height="44" rx="7" fill="url(#screen)" stroke="#3b82f6" stroke-width="2.4"/>
+    <path d="M24 33h21" stroke="#93c5fd" stroke-width="3.6" stroke-linecap="round"/>
+    <path d="M24 43h13" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+    <path d="M23 23v5M23 23h5M65 23v5M65 23h-5M23 52v-5M23 52h5" stroke="#dbeafe" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="72" cy="72" r="13" fill="#f59e0b" stroke="#080e1a" stroke-width="3"/>
+    <path d="M67.5 66.8h6l-3 4.9h2l-4.4 5.7 1.2-4.6h-1.8z" fill="#16233a"/>
+  </g>
+
+  <!-- copy -->
+  <text x="190" y="158" font-family="'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif" font-size="54" font-weight="700" letter-spacing="-1.4" fill="#eaf1ff">Visual Sandbox</text>
+  <text x="192" y="196" font-family="'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif" font-size="20.5" fill="#91a6c4">Point at a block, say what changes, let the agent edit only that block.</text>
+
+  <!-- chips -->
+  <g font-family="'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif" font-size="13.5" font-weight="600" fill="#a9bdd9">
+    <rect x="192" y="228" width="176" height="32" rx="16" fill="#0f1c30" stroke="#233a59"/>
+    <text x="208" y="249">4 preview frames</text>
+
+    <rect x="380" y="228" width="170" height="32" rx="16" fill="#0f1c30" stroke="#233a59"/>
+    <text x="396" y="249">Element-level edit</text>
+
+    <rect x="562" y="228" width="196" height="32" rx="16" fill="#0f1c30" stroke="#233a59"/>
+    <text x="578" y="249">Exact agent targets</text>
+  </g>
+
+  <!-- preview motif -->
+  <g transform="translate(936 46) rotate(-3)" opacity="0.95">
+    <rect x="0" y="0" width="420" height="228" rx="16" fill="#0d182a" fill-opacity="0.9" stroke="#2a4468" stroke-width="1.4"/>
+    <path d="M0 46h420" stroke="#22364f" stroke-width="1.2"/>
+    <circle cx="26" cy="23" r="4.5" fill="#ef5f57"/>
+    <circle cx="43" cy="23" r="4.5" fill="#e7b93f"/>
+    <circle cx="60" cy="23" r="4.5" fill="#4bbf6b"/>
+    <rect x="26" y="72" width="150" height="13" rx="6.5" fill="#3b82f6" fill-opacity="0.55"/>
+    <rect x="26" y="96" width="96" height="9" rx="4.5" fill="#31527f" fill-opacity="0.75"/>
+    <rect x="26" y="126" width="368" height="76" rx="10" fill="#122036" stroke="#28405f" stroke-width="1.2"/>
+    <rect x="46" y="146" width="132" height="10" rx="5" fill="#60a5fa" fill-opacity="0.55"/>
+    <rect x="46" y="166" width="84" height="8" rx="4" fill="#31527f"/>
+    <circle cx="356" cy="164" r="17" fill="none" stroke="#f59e0b" stroke-width="2.4" stroke-dasharray="6 5"/>
+    <rect x="340" y="132" width="46" height="19" rx="5" fill="#f59e0b"/>
+    <text x="363" y="146" font-family="'Segoe UI', 'Inter', system-ui, sans-serif" font-size="12" font-weight="700" fill="#16233a" text-anchor="middle">#1</text>
+  </g>
+</svg>
