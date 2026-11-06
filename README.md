@@ -1,7 +1,7 @@
 <img src="docs/banner.svg" alt="Visual Sandbox — annotatable UI preview for DeepSeek Harness" width="100%">
 
 <p align="center">
-  <a href="CHANGELOG.md"><img alt="version" src="https://img.shields.io/badge/version-1.3.0-3b82f6?style=flat-square"></a>
+  <a href="CHANGELOG.md"><img alt="version" src="https://img.shields.io/badge/version-1.4.0-3b82f6?style=flat-square"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-f59e0b?style=flat-square"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-DeepSeek%20Harness-0ea5e9?style=flat-square">
   <img alt="build" src="https://img.shields.io/badge/build-none%20needed-8b5cf6?style=flat-square">
@@ -21,13 +21,15 @@ touched.
 
 | | |
 | --- | --- |
-| **Four frames** | Responsive (fluid), Mobile `390×844`, Tablet `768×1024`, Desktop `1024×720`. Bezel and window chrome stay crisp while only the app viewport scales. |
+| **Studio header** | The right panel opens on a three-field studio header: **Device & Type**, **Version**, and **Source (Workspace or URL)**. A second row holds **Inspect**, **Edit UI**, **Select** (Element or Region), **Preview scale**, and **Send All**. |
+| **Four frames** | Responsive (fluid), Mobile `390×844`, Tablet `768×1024`, Desktop `1024×720`. Fixed frames fit to the available **width** and scroll vertically when needed, so Mobile is shown near actual size instead of shrinking to fit the height. Frames stay centered until they genuinely overflow the canvas. |
+| **Preview scale** | Choose Fit, 50%, 75%, 100%, **110%**, **120%**, 125%, 150%, or 200%. Fixed frames pan and scroll when they exceed the canvas, so a mobile prototype can be reviewed at actual size or larger. Responsive stays full-bleed. |
 | **Edit UI** | Hover outlines with live selector tags, click to pin, popover for the note. `Enter` sends, `Shift+Enter` breaks the line. |
 | **Surgical by design** | `[#1 mobile: button.seg]` plus box, computed styles, HTML and text reach the agent with a standing rule: change only these targets. |
-| **Auto-detected sources** | The newest workspace `.html`/`.htm` file loads itself; localhost URLs work for dev servers, Expo web, Flutter web, Tauri or Electron renderers. |
-| **Open by default** | The panel reveals itself when a Session opens; the header sparkle toggles it shut and open again, always landing on the newest preview. |
-| **Version history** | Every distinct render of a preview file is kept as a version; a dropdown in the toolbar flips between them instantly. |
-| **No build step** | Plain ESM loaded by the Harness module loader. Edit a file, refresh the page. |
+| **Auto-detected sources** | The newest workspace `.html`/`.htm` file loads itself; a restored source that no longer exists falls back to the newest discovered file instead of showing a 404. Localhost URLs work for dev servers, Expo web, Flutter web, Tauri or Electron renderers. |
+| **Open by default** | The panel reveals itself when a Session opens; the sparkle mark toggles it shut and open again, always landing on the newest preview. |
+| **Version field** | A real **Version** dropdown in the header; workspace files default to the latest render and can flip to an older one. With no history, the field is disabled and shows **Latest**. |
+| **DeepSeek blue** | The studio accent, active controls, Send All gradient, empty-state art, hover highlight and focus rings use DeepSeek blue instead of purple. |
 
 ## Install
 
@@ -77,25 +79,29 @@ appears as *Visual Sandbox* in the right sidebar's guide.
 
 1. **Load a source.** Type a workspace path such as `index.html`, pick one from the chevron
    list, or paste `http://localhost:3000`. Press Enter.
-2. **Pick a frame.** Responsive, Mobile, Tablet or Desktop. Zoom stays at *Fit* until you
-   choose another step; fixed frames scale from the top of the studio canvas.
-3. **Switch to Edit UI.** Hover a block — it outlines and names its selector. Click it.
+2. **Pick a frame.** Use **Device & Type** for Responsive, Mobile, Tablet or Desktop. Use
+   **Preview scale** to enlarge a fixed frame (100%, 110%, 120% and above); the canvas scrolls
+   when the prototype is larger than the panel.
+3. **Switch to Edit UI.** Choose **Element** or **Region** in **Select**. Hover a block — it
+   outlines and names its selector. Click it.
 4. **Write the note** and press Enter. Repeat for each block that is wrong.
 5. **Send All**, add context in the chat, and let the agent make the surgical edit.
 
-The panel can also be opened from the header sparkle — the same button closes it again — or
-by the agent through `open_visual_sandbox`. Opening always restores the newest preview for
-the Session, so the workbench never lands empty.
+The panel can also be opened from the sparkle mark — the same button closes it again — or by
+the agent through `open_visual_sandbox`. Opening always restores the newest preview for the
+Session, so the workbench never lands empty.
 
 ### Versions
 
-Every render of a preview file is captured as a version: the first load, each agent refresh,
-each re-read from disk. Identical documents fold into the previous entry instead of piling
-up. Once a Session has two or more versions, a **Version** dropdown appears under the source
-bar; picking one swaps the preview immediately, without touching the file on disk.
+The **Version** field is always part of the studio header. For a workspace file it lists that
+file's real render history — the first load, each agent refresh, each re-read from disk —
+newest first, with **latest** selected by default. Identical documents fold into the previous
+entry instead of piling up. Picking an older entry swaps the preview immediately, without
+touching the file on disk.
 
-Snapshots live in Host memory for the process lifetime, capped at 8 versions / 8 MB per
-Session; documents larger than 2 MB stay previewable but are not recorded.
+A URL preview, or a file that has no history yet, leaves the field inactive and disabled with
+the text **Latest**. Snapshots live in Host memory for the process lifetime, capped at 8
+versions / 8 MB per Session; documents larger than 2 MB stay previewable but are not recorded.
 
 ### What an annotation records
 
@@ -146,8 +152,8 @@ only those targets, then call `refresh_visual_sandbox`.
 ## Architecture
 
 ```
-client.js ── right sidebar tab ── toolbar · frames · versions · preview iframe · queue
-          └─ header sparkle ───── toggle the panel
+client.js ── right sidebar tab ── studio header · frames · versions · preview iframe · queue
+          └─ header sandbox mark ─ toggle the panel
 
 preview iframe (sandboxed, opaque origin)
    └─ injected inspector  ── postMessage ──▶  panel
@@ -160,7 +166,7 @@ index.js ── /api/plugin/visual-sandbox/{state,render,discover}
 | File | Role |
 | --- | --- |
 | `index.js` | Host half: Session state, the three routes, the five tools, prompt section, HTML inliner, file discovery, version snapshots. |
-| `client.js` | Browser half: frames, source bar, version dropdown, studio canvas, inspector bridge, annotation tray, header toggle, host sync. |
+| `client.js` | Browser half: frames, studio header, version field, dotted canvas, inspector bridge, annotation tray, header toggle, host sync. |
 | `cordis.patch.yml` | Registers the plugin under the `dsh-visual-sandbox` bundle id. |
 | `locale/{en,zh}.json` | Plugin inventory title and description. |
 | `icon.svg` | The mark used by the sidebar guide. |

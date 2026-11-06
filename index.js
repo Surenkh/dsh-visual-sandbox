@@ -18,6 +18,8 @@ const ROUTE_STATE = '/api/plugin/visual-sandbox/state';
 const ROUTE_RENDER = '/api/plugin/visual-sandbox/render';
 /** Exact workspace file discovery route. */
 const ROUTE_DISCOVER = '/api/plugin/visual-sandbox/discover';
+/** Desktop-carrier RPC bridge; the custom-scheme renderer cannot use global fetch. */
+const ROUTE_BRIDGE = '/api/plugin/visual-sandbox/rpc';
 /** Client entry id; an open request republishes a fresh bundle generation. */
 const CLIENT_ID = '@local/dsh-visual-sandbox';
 
@@ -31,7 +33,7 @@ const PLATFORM_ALIASES = {
   'windows-app': 'desktop',
 };
 /** Zoom selections; fit is computed by the panel. */
-const ZOOMS = ['fit', '0.5', '0.75', '1'];
+const ZOOMS = ['fit', '0.5', '0.75', '1', '1.1', '1.2', '1.25', '1.5', '2'];
 
 /** Annotation cap. */
 const MAX_ANNOTATIONS = 30;
@@ -769,7 +771,9 @@ export function apply(ctx) {
   };
 
   /** Register one exact fetch route. */
+  const routeHandlers = new Map();
   const registerRoute = (path, methods, handler, label) => {
+    routeHandlers.set(path, handler);
     const connection = ctx.get('connection');
     if (connection?.fetch?.register === undefined) {
       warn(new Error(`visual-sandbox: no connection fetch registry; ${path} is unavailable`));
@@ -858,8 +862,11 @@ export function apply(ctx) {
       if (!PREVIEW_EXTENSIONS.has(extname(absolute).toLowerCase())) {
         return jsonResponse(415, { error: 'only .html and .htm files can be previewed' });
       }
+      if (!existsSync(absolute)) {
+        return jsonResponse(404, { error: `file not found in this workspace: ${relativePath(root, absolute)}` });
+      }
       const html = readHtml(absolute);
-      if (html === null) return jsonResponse(413, { error: 'the file is missing or larger than 4 MB' });
+      if (html === null) return jsonResponse(413, { error: 'the file is larger than 4 MB' });
       const inlined = inlineDocument(html, resolve(absolute, '..'), root);
       const path = relativePath(root, absolute);
       const title = path.split('/').pop() ?? 'preview';
@@ -895,6 +902,74 @@ export function apply(ctx) {
       return jsonResponse(200, { ok: true, root: found.root, files: found.files, newest: found.files[0]?.path ?? null });
     },
     'visual-sandbox: discover route',
+  );
+
+  /* ------------------------------ desktop rpc ------------------------------ */
+
+  // The desktop renderer runs from dsh-app:// and cannot use global fetch against
+  // the Host HTTP routes. The page's generic Connection RPC caller is pointed at
+  // this exact Fetch route, which unwraps the client-request envelope, executes
+  // the same operation handlers, and returns a server-response envelope.
+  registerRoute(
+    ROUTE_BRIDGE,
+    ['POST'],
+    async (request) => {
+      const body = await readJsonBody(request, MAX_STATE_BODY);
+      if (body === null || body.type !== 'client-request' || typeof body.rpcId !== 'string') {
+        return jsonResponse(400, { error: 'invalid RPC envelope' });
+      }
+      const rpcId = body.rpcId;
+      const call = body.payload !== null && typeof body.payload === 'object' ? body.payload : {};
+      const endpoint = typeof call.endpoint === 'string' ? call.endpoint : '';
+      const payload = call.payload !== null && typeof call.payload === 'object' ? call.payload : {};
+      const path = endpoint === 'state'
+        ? ROUTE_STATE
+        : endpoint === 'render'
+          ? ROUTE_RENDER
+          : endpoint === 'discover'
+            ? ROUTE_DISCOVER
+            : null;
+      if (path === null) {
+        return jsonResponse(200, {
+          type: 'server-response',
+          rpcId,
+          result: { ok: false, error: { code: 'visual-sandbox/unknown', message: `unknown endpoint ${JSON.stringify(endpoint)}`, details: {} } },
+        });
+      }
+      const handler = routeHandlers.get(path);
+      if (handler === undefined) {
+        return jsonResponse(200, {
+          type: 'server-response',
+          rpcId,
+          result: { ok: false, error: { code: 'visual-sandbox/unavailable', message: 'route is unavailable', details: {} } },
+        });
+      }
+      const method = endpoint === 'state' && payload.action === undefined ? 'GET' : 'POST';
+      const query = method === 'GET' ? `?sessionId=${encodeURIComponent(String(payload.sessionId ?? ''))}` : '';
+      const operationRequest = new Request(`http://localhost${path}${query}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: method === 'POST' ? JSON.stringify(payload) : undefined,
+      });
+      const response = await handler(operationRequest);
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        return jsonResponse(200, {
+          type: 'server-response',
+          rpcId,
+          result: {
+            ok: false,
+            error: {
+              code: 'visual-sandbox/route',
+              message: responseBody !== null && typeof responseBody.error === 'string' ? responseBody.error : 'Host route failed',
+              details: { status: response.status },
+            },
+          },
+        });
+      }
+      return jsonResponse(200, { type: 'server-response', rpcId, result: { ok: true, value: responseBody } });
+    },
+    'visual-sandbox: rpc bridge',
   );
 
   /* --------------------------------- tools --------------------------------- */
@@ -1271,4 +1346,4 @@ export function apply(ctx) {
 }
 
 /** Required service. */
-export const inject = ['tools'];
+export const inject = ['tools', 'connection'];

@@ -25,6 +25,10 @@ window.__ModuleLoader__.load({
 
     /** Right-Sidebar service captured at apply time; slot components read it from here. */
     let sidebarService = null;
+    /** Client connection service captured for Host route calls. */
+    let connectionService = null;
+    /** Authenticated desktop-carrier RPC caller, when available. */
+    let rpcCall = null;
 
     /** Four clean viewports. */
     const MODES = [
@@ -53,6 +57,19 @@ window.__ModuleLoader__.load({
       tablet: { width: 24, height: 22 },
       desktop: { width: 0, height: 32 },
     };
+    /** Preview scale choices; numeric values are multipliers. */
+    const ZOOM_OPTIONS = [
+      { value: 'fit', label: 'Fit' },
+      { value: '0.5', label: '50%' },
+      { value: '0.75', label: '75%' },
+      { value: '1', label: '100%' },
+      { value: '1.1', label: '110%' },
+      { value: '1.2', label: '120%' },
+      { value: '1.25', label: '125%' },
+      { value: '1.5', label: '150%' },
+      { value: '2', label: '200%' },
+    ];
+    const ZOOM_VALUES = ZOOM_OPTIONS.map((entry) => entry.value);
 
     /** English copy; the client file stays ASCII-clean. */
     const EN = {
@@ -65,9 +82,24 @@ window.__ModuleLoader__.load({
       reload: 'Reload preview',
       modeLabel: 'Preview mode',
       interact: 'Interact',
+      inspect: 'Inspect',
+      inspectTitle: 'Use the preview normally',
       edit: 'Edit UI',
       editTitle: 'Select UI blocks to change',
       interactTitle: 'Use the preview normally',
+      deviceLabel: 'Device & Type',
+      sourceLabel: 'Source (Workspace or URL)',
+      selectTool: 'Selection tool',
+      selectTitle: 'Selection tool',
+      zoomTitle: 'Preview scale',
+      selectElement: 'Element',
+      selectRegion: 'Region',
+      versionLatest: 'Latest',
+      visualReady: 'Visual Sandbox Ready',
+      visualReadyBody: 'Open a workspace HTML file or a local URL to preview your UI.',
+      elementOnlyHint: 'Element selection needs a workspace HTML preview. Choose Region or load an HTML file.',
+      elementMissingHint: 'Element inspection did not attach. Choose Region to drag a selection.',
+      regionHint: 'Drag a rectangle to select a region.',
       sendAll: 'Send All',
       sendAllTitle: 'Send all queued annotations to the chat composer',
       sendOne: 'Send to Chat',
@@ -210,9 +242,89 @@ window.__ModuleLoader__.load({
 .dvs-annNote{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--dsw-alias-label-secondary);font-size:10.5px;line-height:1.4;overflow-wrap:anywhere}
 .dvs-annDel{flex:none;width:20px;height:20px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .dvs-annDel:hover{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent)}
-.dvs-titleRow{display:inline-flex;align-items:center;gap:5px;min-width:0;overflow:hidden}
+.dvs-titleRow{display:inline-flex;align-items:center;gap:7px;min-width:0;overflow:hidden}
 .dvs-titleIcon{flex:none;opacity:.9}
-.dvs-titleText{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dvs-titleText{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dvs-titleChevron{display:flex;align-items:center;color:var(--dsw-alias-label-secondary);opacity:.65;margin-left:1px}
+
+/* Studio header */
+.dvs-toolbar{flex:none;display:flex;flex-direction:column;gap:10px;padding:10px 12px 8px;border-bottom:0}
+.dvs-controls{display:grid;grid-template-columns:minmax(88px,1fr) minmax(78px,.85fr) minmax(118px,1.5fr);gap:10px;min-width:0}
+.dvs-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.dvs-fieldLabel{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:10.5px;font-weight:500;line-height:1.2}
+.dvs-fieldLabel svg{opacity:.85}
+.dvs-fieldControl{position:relative;display:flex;align-items:center;gap:6px;height:40px;box-sizing:border-box;min-width:0;padding:0 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);transition:border-color .12s ease,box-shadow .12s ease}
+.dvs-fieldControl:hover{border-color:var(--dsw-alias-border-l2)}
+.dvs-fieldControl:focus-within{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 62%,var(--dsw-alias-border-l1));box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-brand-primary) 13%,transparent)}
+.dvs-fieldIcon{display:flex;align-items:center;justify-content:center;flex:none;color:var(--dsw-alias-label-secondary)}
+.dvs-fieldSelect{flex:1 1 auto;min-width:0;height:100%;appearance:none;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1;padding:0 17px 0 0;outline:none;cursor:pointer;text-overflow:ellipsis}
+.dvs-fieldSelect:disabled{color:var(--dsw-alias-label-secondary);cursor:default;opacity:.9}
+.dvs-fieldChevron{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);pointer-events:none}
+.dvs-sourceControl{padding-right:53px}
+.dvs-sourceInput{flex:1 1 auto;min-width:0;height:100%;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;outline:none;padding:0}
+.dvs-sourceInput::placeholder{color:var(--dsw-alias-label-secondary)}
+.dvs-fieldButtons{position:absolute;right:3px;top:3px;bottom:3px;display:flex;align-items:center;gap:1px}
+.dvs-fieldBtn{width:24px;height:100%;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
+.dvs-fieldBtn:hover{color:var(--dsw-alias-label-primary);background:color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent)}
+.dvs-fieldBtn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}
+.dvs-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;row-gap:6px;min-width:0}
+.dvs-actionBtn{height:34px;box-sizing:border-box;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:0 9px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;font-weight:500;white-space:nowrap;cursor:pointer}
+.dvs-actionBtn:hover{color:var(--dsw-alias-label-primary);background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,transparent)}
+.dvs-actionBtn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.dvs-actionIcon{width:34px;padding:0}
+.dvs-selectAction{position:relative;flex:none;display:inline-flex;align-items:center;gap:5px;height:34px;min-width:72px;box-sizing:border-box;padding:0 6px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer}
+.dvs-selectAction:hover{color:var(--dsw-alias-label-primary);background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,transparent)}
+.dvs-selectAction select{appearance:none;flex:1 1 auto;min-width:0;height:100%;padding:0 13px 0 0;border:0;background:transparent;color:inherit;font:inherit;font-size:11px;font-weight:500;outline:none;cursor:pointer}
+.dvs-actionChevron{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:flex;align-items:center;pointer-events:none;opacity:.8}
+.dvs-sendAll{margin-left:auto;height:34px;box-sizing:border-box;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:0 11px;border:0;border-radius:8px;background:linear-gradient(135deg,var(--dvs-accent,#4d6bfe),var(--dvs-accent-strong,#3f58e8));color:#fff;font:600 11px/1 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 10px color-mix(in srgb,var(--dvs-accent,#4d6bfe) 26%,transparent)}
+.dvs-sendAll:hover:not(:disabled){filter:brightness(1.06)}
+.dvs-sendAll:disabled{opacity:.42;box-shadow:none;cursor:default}
+.dvs-sendAll:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
+.dvs-hint{flex:none;margin:0 12px 8px;padding:6px 9px;border:1px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);font-size:10.5px;line-height:1.5}
+
+/* Canvas */
+.dvs-stageBox{position:relative;flex:1 1 auto;min-height:0;display:flex;padding:0 12px 12px;background:var(--dsw-alias-bg-base);overflow:hidden}
+.dvs-canvasCard{position:relative;flex:1 1 auto;min-width:0;min-height:0;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;overflow:hidden;background-color:#fff;background-image:radial-gradient(circle,rgba(100,116,139,.18) 1.1px,transparent 1.2px);background-size:16px 16px}
+.dvs-root[data-dark=true] .dvs-canvasCard{border-color:var(--dsw-alias-border-l2);background-color:#0f1117;background-image:radial-gradient(circle,rgba(148,163,184,.18) 1.1px,transparent 1.2px)}
+.dvs-studio{position:absolute;inset:0;overflow:hidden}
+.dvs-studio[data-scroll=true]{overflow:auto}
+.dvs-studio[data-manual=true]{overflow:auto}
+.dvs-frameHost{min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:16px 12px;box-sizing:border-box}
+.dvs-readyCard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 32px));box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 22px 22px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-base);text-align:center;box-shadow:0 14px 38px rgba(15,23,42,.10)}
+.dvs-readyCard h3{margin:2px 0 0;color:var(--dsw-alias-label-primary);font-size:17px;font-weight:700;letter-spacing:-.01em}
+.dvs-readyCard p{margin:0;max-width:250px;color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:1.55}
+.dvs-readyArt{display:block;margin-bottom:2px}
+
+/* DeepSeek blue accent and integrated select fields */
+.dvs-root{--dvs-accent:#4d6bfe;--dvs-accent-strong:#3f58e8;--dvs-accent-soft:color-mix(in srgb,#4d6bfe 10%,var(--dsw-alias-bg-base));--dvs-accent-line:color-mix(in srgb,#4d6bfe 38%,var(--dsw-alias-border-l1));--dsw-alias-brand-primary:#4d6bfe}
+.dvs-headerMark,.dvs-titleIcon{display:flex;align-items:center;justify-content:center;flex:none;color:var(--dvs-accent)}
+.dvs-titleIcon{opacity:1}
+.dvs-fieldValue{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);font-size:12px;line-height:1.2;pointer-events:none}
+.dvs-selectControl{cursor:pointer}
+.dvs-selectControl .dvs-fieldIcon,.dvs-selectControl .dvs-fieldChevron,.dvs-selectControl .dvs-fieldValue{pointer-events:none}
+.dvs-selectControl[data-disabled=true]{background:var(--dsw-alias-bg-layer-1);cursor:default}
+.dvs-selectControl[data-disabled=true] .dvs-fieldValue{color:var(--dsw-alias-label-secondary)}
+.dvs-selectControl[data-disabled=true] .dvs-fieldIcon,.dvs-selectControl[data-disabled=true] .dvs-fieldChevron{opacity:.55}
+.dvs-fieldSelectOverlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;opacity:0;appearance:none;border:0;background:transparent;cursor:pointer;font-size:12px}
+.dvs-fieldSelectOverlay:disabled{cursor:default}
+.dvs-selectAction{min-width:88px}
+.dvs-zoomAction{min-width:104px}
+.dvs-selectAction[data-disabled=true]{opacity:.55;background:var(--dsw-alias-bg-layer-1);cursor:default}
+.dvs-selectValue{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);font-size:11px;font-weight:500;text-align:left;pointer-events:none}
+.dvs-selectAction > svg,.dvs-selectAction .dvs-actionChevron{pointer-events:none}
+.dvs-selectOverlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;opacity:0;appearance:none;border:0;background:transparent;cursor:pointer;font-size:11px}
+.dvs-actionBtn[data-active=true]{border-color:var(--dvs-accent-line);background:var(--dvs-accent-soft);color:var(--dvs-accent-strong);font-weight:600}
+.dvs-root[data-dark=true] .dvs-actionBtn[data-active=true]{border-color:var(--dvs-accent);background:color-mix(in srgb,var(--dvs-accent) 20%,transparent);color:#c7d2ff}
+.dvs-sendAll{background:linear-gradient(135deg,var(--dvs-accent),var(--dvs-accent-strong));box-shadow:0 3px 10px color-mix(in srgb,var(--dvs-accent) 26%,transparent)}
+.dvs-hoverBox{border-color:var(--dvs-accent);background:color-mix(in srgb,var(--dvs-accent) 8%,transparent)}
+.dvs-hoverTag{background:var(--dvs-accent)}
+.dvs-regionRect{border-color:var(--dvs-accent);background:color-mix(in srgb,var(--dvs-accent) 12%,transparent)}
+.dvs-artWindow{fill:color-mix(in srgb,var(--dvs-accent) 9%,var(--dsw-alias-bg-base));stroke:var(--dvs-accent)}
+.dvs-artBar{stroke:color-mix(in srgb,var(--dvs-accent) 35%,transparent)}
+.dvs-artDot{fill:color-mix(in srgb,var(--dvs-accent) 55%,transparent)}
+.dvs-artCode{stroke:var(--dvs-accent)}
+.dvs-artSpark{fill:color-mix(in srgb,var(--dvs-accent) 75%,transparent)}
+.dvs-artSparkSoft{fill:color-mix(in srgb,var(--dvs-accent) 45%,transparent)}
 `;
 
     /** Inspector injected into workspace previews. It reports, never draws. */
@@ -427,10 +539,32 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** Call one visual-sandbox Host operation over the desktop carrier. */
+    async function rpcRequest(endpoint, payload) {
+      if (rpcCall === null) return null;
+      try {
+        const result = await rpcCall('/api', 'plugin/visual-sandbox/rpc', { endpoint, payload });
+        if (result !== null && typeof result === 'object' && result.ok === true && result.value !== null && typeof result.value === 'object') {
+          return result.value;
+        }
+        if (result !== null && typeof result === 'object' && result.ok === false) {
+          return { ok: false, error: result.error?.message ?? 'Host request failed' };
+        }
+        return null;
+      } catch (error) {
+        return null;
+      }
+    }
+
     /** GET JSON. */
     async function getJson(path) {
       try {
-        const response = await fetch(endpointFor(path), { method: 'GET', headers: { accept: 'application/json' }, cache: 'no-store', signal: deadline() });
+        const url = new URL(endpointFor(path));
+        if (rpcCall !== null && url.pathname === ROUTE_STATE) {
+          const value = await rpcRequest('state', { sessionId: url.searchParams.get('sessionId') ?? '', action: 'ping' });
+          if (value !== null) return value;
+        }
+        const response = await fetch(endpointFor(path), { method: 'GET', headers: { accept: 'application/json' }, cache: 'no-store', credentials: 'include', signal: deadline() });
         if (!response.ok) return null;
         const body = await response.json();
         return body !== null && typeof body === 'object' ? body : null;
@@ -442,11 +576,17 @@ window.__ModuleLoader__.load({
     /** POST JSON. */
     async function postJson(path, body) {
       try {
+        const endpoint = path === ROUTE_STATE ? 'state' : path === ROUTE_RENDER ? 'render' : path === ROUTE_DISCOVER ? 'discover' : null;
+        if (rpcCall !== null && endpoint !== null) {
+          const value = await rpcRequest(endpoint, body);
+          if (value !== null) return value;
+        }
         const response = await fetch(endpointFor(path), {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'application/json' },
           body: JSON.stringify(body),
           cache: 'no-store',
+          credentials: 'include',
           signal: deadline(),
         });
         const parsed = await response.json().catch(() => null);
@@ -531,6 +671,81 @@ window.__ModuleLoader__.load({
     function ExpandGlyph() {
       return h('svg', { width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block' } },
         h('path', { d: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round' }));
+    }
+
+    /** Pencil glyph for Edit UI. */
+    function PencilGlyph() {
+      return h('svg', { width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block' } },
+        h('path', { d: 'M10.8 2.4l2.8 2.8-8.2 8.2-3.3.5.5-3.3z', stroke: 'currentColor', strokeWidth: 1.3, strokeLinejoin: 'round' }),
+        h('path', { d: 'M9.3 3.9l2.8 2.8', stroke: 'currentColor', strokeWidth: 1.3 }),
+      );
+    }
+
+    /** Dashed selection rectangle. */
+    function SelectGlyph() {
+      return h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block', flex: 'none' } },
+        h('rect', { x: 3, y: 3, width: 10, height: 10, rx: 1.5, stroke: 'currentColor', strokeWidth: 1.3, strokeDasharray: '2.4 1.8' }),
+      );
+    }
+
+    /** Paper plane for Send All. */
+    function SendGlyph() {
+      return h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block' } },
+        h('path', { d: 'M2.2 7.2l11.3-4.4-3.3 11.4-2.7-4.5z', stroke: 'currentColor', strokeWidth: 1.3, strokeLinejoin: 'round' }),
+        h('path', { d: 'M7.5 9.7l3.3-4.1', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' }),
+      );
+    }
+
+    /** Magnifier with a plus, for the preview scale control. */
+    function ZoomGlyph() {
+      return h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block', flex: 'none' } },
+        h('circle', { cx: 7, cy: 7, r: 4.4, stroke: 'currentColor', strokeWidth: 1.3 }),
+        h('path', { d: 'M10.3 10.3L14 14M7 5v4M5 7h4', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' }),
+      );
+    }
+
+    /** Layers glyph for Version. */
+    function LayersGlyph() {
+      return h('svg', { width: 11, height: 11, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block', flex: 'none' } },
+        h('path', { d: 'M8 2.4l5.4 2.9L8 8.2 2.6 5.3z', stroke: 'currentColor', strokeWidth: 1.2, strokeLinejoin: 'round' }),
+        h('path', { d: 'M2.8 8.3L8 11.1l5.2-2.8M2.8 11.2L8 14l5.2-2.8', stroke: 'currentColor', strokeWidth: 1.1, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+      );
+    }
+
+    /** Link glyph for Source. */
+    function LinkGlyph() {
+      return h('svg', { width: 11, height: 11, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block', flex: 'none' } },
+        h('path', { d: 'M6.5 9.5l3-3M5.2 10.8l-1 1a2.4 2.4 0 01-3.4-3.4l2-2a2.4 2.4 0 013.4 0M10.8 5.2l1-1a2.4 2.4 0 013.4 3.4l-2 2a2.4 2.4 0 01-3.4 0', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' }),
+      );
+    }
+
+    /** Globe glyph for the Source control. */
+    function GlobeGlyph() {
+      return h('svg', { width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block', flex: 'none' } },
+        h('circle', { cx: 8, cy: 8, r: 6, stroke: 'currentColor', strokeWidth: 1.2 }),
+        h('path', { d: 'M2 8h12M8 2c2.1 2 2.1 10 0 12M8 2c-2.1 2-2.1 10 0 12', stroke: 'currentColor', strokeWidth: 1.05, strokeLinecap: 'round' }),
+      );
+    }
+
+    /** Monitor glyph for Device & Type. */
+    function MonitorGlyph() {
+      return h('svg', { width: 11, height: 11, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true, style: { display: 'block', flex: 'none' } },
+        h('rect', { x: 1.6, y: 2.4, width: 12.8, height: 9, rx: 1.4, stroke: 'currentColor', strokeWidth: 1.2 }),
+        h('path', { d: 'M5.5 14h5M8 11.4V14', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' }),
+      );
+    }
+
+    /** Empty-state illustration: a browser window with code and sparkles. */
+    function ReadyArt() {
+      return h('svg', { width: 86, height: 70, viewBox: '0 0 86 70', fill: 'none', 'aria-hidden': true, style: { display: 'block' } },
+        h('rect', { className: 'dvs-artWindow', x: 10, y: 12, width: 62, height: 46, rx: 8, strokeWidth: 2 }),
+        h('path', { className: 'dvs-artBar', d: 'M10 23h62', strokeWidth: 1.6 }),
+        h('circle', { className: 'dvs-artDot', cx: 17, cy: 18, r: 1.6 }),
+        h('circle', { className: 'dvs-artDot', cx: 23, cy: 18, r: 1.6 }),
+        h('path', { className: 'dvs-artCode', d: 'M33 31l-6 7 6 7M49 31l6 7-6 7M44 28l-4 20', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+        h('path', { className: 'dvs-artSpark', d: 'M72 8l1.6 4.1L78 13.7l-4.4 1.6L72 19.4l-1.6-4.1L66 13.7l4.4-1.6z' }),
+        h('path', { className: 'dvs-artSparkSoft', d: 'M12 58l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z' }),
+      );
     }
 
     /** Normalize one platform mode. */
@@ -674,7 +889,7 @@ window.__ModuleLoader__.load({
           'aria-label': title,
           onClick: toggle,
         },
-        h(SparkleGlyph, { size: 14 }),
+        h('span', { className: 'dvs-headerMark', 'aria-hidden': true }, h(SparkleGlyph, { size: 15 })),
       );
     }
 
@@ -690,8 +905,9 @@ window.__ModuleLoader__.load({
     /** Tab title. */
     function VisualSandboxTitle(props) {
       return h('span', { className: 'dvs-titleRow' },
-        h(SparkleGlyph, { size: 13, className: 'dvs-titleIcon' }),
-        h('span', { className: 'dvs-titleText' }, props.t('tabTitle')));
+        h('span', { className: 'dvs-titleIcon', 'aria-hidden': true }, h(SparkleGlyph, { size: 15 })),
+        h('span', { className: 'dvs-titleText' }, props.t('tabTitle')),
+        h('span', { className: 'dvs-titleChevron', 'aria-hidden': true }, h(ChevronGlyph)));
     }
 
     /** Workbench tab. */
@@ -705,6 +921,7 @@ window.__ModuleLoader__.load({
       const [files, setFiles] = React.useState([]);
       const [annotations, setAnnotations] = React.useState([]);
       const [mode, setMode] = React.useState('interact');
+      const [selectionMode, setSelectionMode] = React.useState('element');
       const [platformMode, setPlatformMode] = React.useState('web');
       const [zoom, setZoom] = React.useState('fit');
       const [expand, setExpand] = React.useState(false);
@@ -733,6 +950,7 @@ window.__ModuleLoader__.load({
       const noteRef = React.useRef(null);
       const drag = React.useRef(null);
       const live = React.useRef({});
+      const resolvedRoot = React.useRef('');
       const skipSync = React.useRef(false);
       const seq = React.useRef({ refresh: null, clear: null, open: null, mode: null });
       const booted = React.useRef(false);
@@ -749,14 +967,17 @@ window.__ModuleLoader__.load({
       const metrics = VIEWPORTS[platformMode] ?? null;
       const chrome = CHROME[platformMode] ?? { width: 0, height: 0 };
       const availableWidth = Math.max(80, stageSize.width - 24 - chrome.width);
-      const availableHeight = Math.max(80, stageSize.height - 32 - chrome.height);
       const fitScale = metrics === null
         ? 1
-        : Math.min(1, Math.max(0.1, availableWidth / metrics.width), Math.max(0.1, availableHeight / metrics.height));
+        : Math.min(1, Math.max(0.1, availableWidth / metrics.width));
       const scale = metrics === null ? 1 : zoom === 'fit' ? fitScale : Number(zoom) || 1;
       const manual = metrics !== null && zoom !== 'fit';
       const displayWidth = metrics === null ? contentSize.width : metrics.width * scale;
       const displayHeight = metrics === null ? contentSize.height : metrics.height * scale;
+      const frameWidth = displayWidth + chrome.width;
+      const frameCentered = stageSize.width === 0 || frameWidth <= stageSize.width - 24;
+      const frameHostStyle = { justifyContent: frameCentered ? 'center' : 'flex-start', alignItems: 'flex-start' };
+      const scrollable = metrics !== null;
       const viewport = metrics ?? { width: Math.max(1, contentSize.width), height: Math.max(1, contentSize.height) };
 
       live.current = {
@@ -770,6 +991,7 @@ window.__ModuleLoader__.load({
         zoom,
         expand,
         mode,
+        selectionMode,
         draft,
         viewport,
         scale,
@@ -851,7 +1073,7 @@ window.__ModuleLoader__.load({
         setInspectorMissing(false);
         setHover(null);
         setPinBoxes({});
-        const response = await postJson(ROUTE_RENDER, { sessionId: live.current.sessionId, root: workspaceRoot, path: clean });
+        const response = await postJson(ROUTE_RENDER, { sessionId: live.current.sessionId, root: resolvedRoot.current || workspaceRoot, path: clean });
         if (response === null || response.ok !== true) {
           setStatus('error');
           notify('error', response?.error ?? t('loadFailed'));
@@ -934,6 +1156,7 @@ window.__ModuleLoader__.load({
       const discover = async () => {
         const response = await postJson(ROUTE_DISCOVER, { sessionId, root: workspaceRoot });
         if (response === null || response.ok !== true) return [];
+        if (typeof response.root === 'string' && response.root.length > 0) resolvedRoot.current = response.root;
         const found = Array.isArray(response.files) ? response.files : [];
         setFiles(found);
         return found;
@@ -991,11 +1214,12 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         if (sessionId.length === 0) return undefined;
+        if (workspaceRoot.length > 0) resolvedRoot.current = '';
         let cancelled = false;
         const boot = async () => {
           const remote = await getJson(`${ROUTE_STATE}?sessionId=${encodeURIComponent(sessionId)}`);
           if (cancelled) return;
-        let hasInitialSource = false;
+          let sourceLoaded = false;
           if (remote !== null && remote.ok === true) {
             applyVersions(remote);
             seq.current = {
@@ -1005,11 +1229,10 @@ window.__ModuleLoader__.load({
               mode: remote.modeSeq ?? 0,
             };
             if (MODE_IDS.includes(remote.platformMode)) setPlatformMode(remote.platformMode);
-            if (remote.zoom === 'fit' || remote.zoom === '0.5' || remote.zoom === '0.75' || remote.zoom === '1') setZoom(remote.zoom);
+            if (ZOOM_VALUES.includes(remote.zoom)) setZoom(remote.zoom);
             if (typeof remote.expandContainers === 'boolean') setExpand(remote.expandContainers);
             const restored = remote.source;
             if (restored !== null && typeof restored === 'object') {
-              hasInitialSource = true;
               skipSync.current = true;
               setSource(restored);
               setDraft(restored.value);
@@ -1018,18 +1241,37 @@ window.__ModuleLoader__.load({
                 setAnnotations(remote.annotations);
               }
               if (restored.kind === 'file') {
-                void loadFile(restored.value, { preserve: true });
+                sourceLoaded = await loadFile(restored.value, { preserve: true });
+                if (!sourceLoaded) {
+                  live.current.source = null;
+                  setSource(null);
+                  setDraft('');
+                }
               } else if (restored.kind === 'url') {
                 setReloadKey((value) => value + 1);
                 setStatus('ready');
+                sourceLoaded = true;
               }
             }
           }
           const found = await discover();
           if (cancelled) return;
-          if (!booted.current && !hasInitialSource && live.current.source === null && found.length > 0) {
+          if (live.current.source?.kind === 'file' && found.length > 0) {
+            const currentEntry = found.find((entry) => entry.path === live.current.source.value);
+            const newest = found[0];
+            if (
+              currentEntry !== undefined
+              && newest !== undefined
+              && newest.path !== currentEntry.path
+              && Number(newest.mtime) > Number(currentEntry.mtime)
+            ) {
+              sourceLoaded = await loadFile(newest.path, { preserve: true });
+              if (sourceLoaded) setNotice(null);
+            }
+          }
+          if (!sourceLoaded && live.current.source === null && found.length > 0) {
             booted.current = true;
-            void loadFile(found[0].path, { preserve: true });
+            if (await loadFile(found[0].path, { preserve: true })) setNotice(null);
           }
         };
         void boot();
@@ -1054,7 +1296,7 @@ window.__ModuleLoader__.load({
             seq.current.mode = remote.modeSeq;
             settlePending();
             if (MODE_IDS.includes(remote.platformMode)) setPlatformMode(remote.platformMode);
-            if (remote.zoom === 'fit' || remote.zoom === '0.5' || remote.zoom === '0.75' || remote.zoom === '1') setZoom(remote.zoom);
+            if (ZOOM_VALUES.includes(remote.zoom)) setZoom(remote.zoom);
             if (typeof remote.expandContainers === 'boolean') setExpand(remote.expandContainers);
             setPending(null);
             setHover(null);
@@ -1176,13 +1418,13 @@ window.__ModuleLoader__.load({
         if (frame === null || frame.contentWindow === null) return;
         try {
           frame.contentWindow.postMessage(
-            { __dshVisualSandbox: true, type: 'mode', edit: mode === 'edit' && (source?.kind === 'file') && !inspectorMissing },
+            { __dshVisualSandbox: true, type: 'mode', edit: mode === 'edit' && (source?.kind === 'file') && !inspectorMissing && selectionMode === 'element' },
             '*',
           );
           const pins = pinList().map((pin) => ({ id: pin.id, selector: pin.selector }));
           frame.contentWindow.postMessage({ __dshVisualSandbox: true, type: 'pins', pins }, '*');
         } catch (error) {}
-      }, [mode, frameReady, reloadKey, platformMode, annotations.length]);
+      }, [mode, selectionMode, frameReady, reloadKey, platformMode, annotations.length]);
 
       React.useEffect(() => {
         setFrameReady(false);
@@ -1387,7 +1629,8 @@ window.__ModuleLoader__.load({
       const currentPending = pending === null ? null : annotations.find((annotation) => annotation.id === pending) ?? null;
       const queued = annotations.filter((annotation) => annotation.pending !== true);
       const unsent = queued.filter((annotation) => annotation.sent !== true);
-      const regionEnabled = mode === 'edit' && source !== null && (source.kind === 'url' || (source.kind === 'file' && inspectorMissing));
+      const elementEnabled = mode === 'edit' && source?.kind === 'file' && !inspectorMissing && selectionMode === 'element';
+      const regionEnabled = mode === 'edit' && source !== null && selectionMode === 'region';
       const responsive = platformMode === 'web';
       const canExpand = platformMode !== 'mobile';
       const expandAvailable = source?.kind === 'file';
@@ -1465,66 +1708,202 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const versionLabel = (entry) => {
-        const stamp = new Date(entry.at);
-        const time = `${String(stamp.getHours()).padStart(2, '0')}:${String(stamp.getMinutes()).padStart(2, '0')}`;
-        return `v${entry.id} - ${time} - ${entry.title}`;
+      const chooseSelection = (value) => {
+        setSelectionMode(value);
+        setHover(null);
+        setRegionDrag(null);
       };
 
-      const renderVersions = () => {
-        if (versions.length < 2) return null;
-        return h(
-          'div',
-          { className: 'dvs-versions' },
-          h('span', { className: 'dvs-versionsLabel' }, t('versionLabel')),
-          h(
-            'select',
-            {
-              className: 'dvs-versionsSelect',
-              value: activeVersion === null ? '' : String(activeVersion),
-              'aria-label': t('versionLabel'),
-              onChange: (event) => void selectVersion(event.target.value),
-            },
-            versions.map((entry) => h('option', { key: entry.id, value: String(entry.id) }, versionLabel(entry))),
-          ),
-        );
-      };
+      const selectionHint = (() => {
+        if (mode !== 'edit' || source === null) return null;
+        if (selectionMode === 'element') {
+          if (source.kind === 'url') return t('elementOnlyHint');
+          if (source.kind === 'file' && inspectorMissing) return t('elementMissingHint');
+          return null;
+        }
+        if (selectionMode === 'region') {
+          return source.kind === 'url' ? t('crossOriginHint') : t('regionHint');
+        }
+        return null;
+      })();
 
       const renderToolbar = () => {
-        const fixed = metrics;
-        const meta = responsive
-          ? `${Math.max(0, Math.round(contentSize.width))} x ${Math.max(0, Math.round(contentSize.height))} | 100%`
-          : `${viewport.width} x ${viewport.height} | ${Math.round(scale * 100)}%`;
+        const fileVersions = source?.kind === 'file'
+          ? versions.filter((entry) => entry?.source?.kind === 'file' && entry.source.value === source.value)
+          : [];
+        const latestVersion = fileVersions.length > 0 ? fileVersions[fileVersions.length - 1].id : null;
+        const activeEntry = fileVersions.find((entry) => String(entry.id) === String(activeVersion));
+        const versionValue = fileVersions.length > 0 ? String((activeEntry ?? fileVersions[fileVersions.length - 1]).id) : '';
+        const versionDisabled = fileVersions.length === 0;
+        const versionTitle = (entry) => `v${entry.id} - ${new Date(entry.at).toLocaleTimeString()} - ${entry.title}`;
+        const versionOptions = fileVersions.length > 0
+          ? fileVersions.map((entry) => ({ value: String(entry.id), label: entry.id === latestVersion ? `v${entry.id} (latest)` : `v${entry.id}`, title: versionTitle(entry) }))
+          : [{ value: '', label: t('versionLatest'), title: t('versionLatest') }];
+        const selectedVersion = versionOptions.find((entry) => entry.value === versionValue) ?? versionOptions[versionOptions.length - 1];
+        const deviceLabel = MODES.find((entry) => entry.id === platformMode)?.label ?? 'Responsive';
+      const fitPercent = Math.round(fitScale * 100);
+      const zoomOptions = ZOOM_OPTIONS.map((entry) => (entry.value === 'fit' ? { ...entry, label: `Fit (${fitPercent}%)` } : entry));
+      const currentZoom = responsive ? 'fit' : zoom;
+      const zoomLabel = responsive ? 'Fit' : (zoomOptions.find((entry) => entry.value === zoom)?.label ?? 'Fit');
         return h(
           'div',
           { className: 'dvs-toolbar' },
           h(
             'div',
-            { className: 'dvs-topRow' },
+            { className: 'dvs-controls' },
             h(
               'div',
-              { className: 'dvs-modes', role: 'group', 'aria-label': t('platformLabel') },
-              MODES.map((entry) =>
+              { className: 'dvs-field' },
+              h('span', { className: 'dvs-fieldLabel' }, h(MonitorGlyph), t('deviceLabel')),
+              h(
+                'div',
+                { className: 'dvs-fieldControl dvs-selectControl' },
+                h('span', { className: 'dvs-fieldIcon' }, h(ViewportGlyph, { id: platformMode })),
+                h('span', { className: 'dvs-fieldValue' }, deviceLabel),
+                h('span', { className: 'dvs-fieldChevron', 'aria-hidden': true }, h(ChevronGlyph)),
                 h(
-                  'button',
+                  'select',
                   {
-                    key: entry.id,
-                    type: 'button',
-                    'data-active': platformMode === entry.id ? 'true' : 'false',
-                    'aria-pressed': platformMode === entry.id ? 'true' : 'false',
-                    title: `${entry.label} - ${entry.size}`,
-                    onClick: () => setModeAndSync(entry.id),
+                    className: 'dvs-fieldSelectOverlay',
+                    value: platformMode,
+                    'aria-label': t('deviceLabel'),
+                    onChange: (event) => setModeAndSync(event.target.value),
                   },
-                  h(ViewportGlyph, { id: entry.icon }),
-                  entry.label,
+                  MODES.map((entry) => h('option', { key: entry.id, value: entry.id, title: entry.size }, entry.label)),
                 ),
+              ),
+            ),
+            h(
+              'div',
+              { className: 'dvs-field' },
+              h('span', { className: 'dvs-fieldLabel' }, h(LayersGlyph), t('versionLabel')),
+              h(
+                'div',
+                {
+                  className: 'dvs-fieldControl dvs-selectControl',
+                  'data-disabled': versionDisabled ? 'true' : 'false',
+                  title: selectedVersion.title,
+                },
+                h('span', { className: 'dvs-fieldIcon' }, h(LayersGlyph)),
+                h('span', { className: 'dvs-fieldValue' }, selectedVersion.label),
+                h('span', { className: 'dvs-fieldChevron', 'aria-hidden': true }, h(ChevronGlyph)),
+                h(
+                  'select',
+                  {
+                    className: 'dvs-fieldSelectOverlay',
+                    value: versionValue,
+                    disabled: versionDisabled,
+                    'aria-label': t('versionLabel'),
+                    onChange: (event) => {
+                      if (event.target.value.length > 0) void selectVersion(event.target.value);
+                    },
+                  },
+                  versionOptions.map((entry) => h('option', { key: entry.value, value: entry.value, title: entry.title }, entry.label)),
+                ),
+              ),
+            ),
+            h(
+              'div',
+              { className: 'dvs-field dvs-fieldSource' },
+              h('span', { className: 'dvs-fieldLabel' }, h(LinkGlyph), t('sourceLabel')),
+              h(
+                'div',
+                { className: 'dvs-fieldControl dvs-sourceControl' },
+                h('span', { className: 'dvs-fieldIcon' }, h(GlobeGlyph)),
+                h('input', {
+                  ref: sourceInputRef,
+                  list: 'dvs-preview-files',
+                  className: 'dvs-sourceInput',
+                  type: 'text',
+                  value: draft,
+                  placeholder: t('sourcePlaceholder'),
+                  spellCheck: false,
+                  'aria-label': t('sourcePlaceholder'),
+                  onChange: onSourceChange,
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      loadFromInput();
+                    }
+                  },
+                }),
+                h(
+                  'div',
+                  { className: 'dvs-fieldButtons' },
+                  h('button', { type: 'button', className: 'dvs-fieldBtn', title: t('reload'), 'aria-label': t('reload'), onClick: reloadPreview }, h(ReloadGlyph)),
+                  h('button', { type: 'button', className: 'dvs-fieldBtn', title: t('chooseFile'), 'aria-label': t('chooseFile'), onClick: openPicker }, h(ChevronGlyph)),
+                ),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { className: 'dvs-actions' },
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dvs-actionBtn',
+                'data-active': mode === 'interact' ? 'true' : 'false',
+                title: t('inspectTitle'),
+                onClick: () => setMode('interact'),
+              },
+              h(CursorGlyph),
+              t('inspect'),
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dvs-actionBtn',
+                'data-active': mode === 'edit' ? 'true' : 'false',
+                title: t('editTitle'),
+                onClick: () => setMode('edit'),
+              },
+              h(PencilGlyph),
+              t('edit'),
+            ),
+            h(
+              'div',
+              { className: 'dvs-selectAction', title: t('selectTitle') },
+              h(SelectGlyph),
+              h('span', { className: 'dvs-selectValue' }, selectionMode === 'region' ? t('selectRegion') : t('selectElement')),
+              h('span', { className: 'dvs-actionChevron', 'aria-hidden': true }, h(ChevronGlyph)),
+              h(
+                'select',
+                {
+                  className: 'dvs-selectOverlay',
+                  value: selectionMode,
+                  'aria-label': t('selectTool'),
+                  onChange: (event) => chooseSelection(event.target.value),
+                },
+                h('option', { value: 'element' }, t('selectElement')),
+                h('option', { value: 'region' }, t('selectRegion')),
+              ),
+            ),
+            h(
+              'div',
+              { className: 'dvs-selectAction dvs-zoomAction', title: t('zoomTitle'), 'data-disabled': responsive ? 'true' : 'false' },
+              h(ZoomGlyph),
+              h('span', { className: 'dvs-selectValue' }, zoomLabel),
+              h('span', { className: 'dvs-actionChevron', 'aria-hidden': true }, h(ChevronGlyph)),
+              h(
+                'select',
+                {
+                  className: 'dvs-selectOverlay',
+                  value: currentZoom,
+                  disabled: responsive,
+                  'aria-label': t('zoomTitle'),
+                  onChange: (event) => setZoom(event.target.value),
+                },
+                zoomOptions.map((entry) => h('option', { key: entry.value, value: entry.value }, entry.label)),
               ),
             ),
             h(
               'button',
               {
                 type: 'button',
-                className: 'dvs-expand',
+                className: 'dvs-actionBtn dvs-actionIcon',
                 'data-active': expand ? 'true' : 'false',
                 'aria-pressed': expand ? 'true' : 'false',
                 disabled: !canExpand || !expandAvailable,
@@ -1532,50 +1911,15 @@ window.__ModuleLoader__.load({
                 onClick: () => setExpand((value) => !value),
               },
               h(ExpandGlyph),
-              t('expand'),
-            ),
-            h('span', { className: 'dvs-meta', title: `${fixed ? '' : 'Fluid'} ${meta}` }, meta),
-          ),
-          h(
-            'div',
-            { className: 'dvs-row' },
-            h(
-              'span',
-              { className: 'dvs-sourceWrap' },
-              h('input', {
-                ref: sourceInputRef,
-                list: 'dvs-preview-files',
-                className: 'dvs-source',
-                type: 'text',
-                value: draft,
-                placeholder: t('sourcePlaceholder'),
-                spellCheck: false,
-                'aria-label': t('sourcePlaceholder'),
-                onChange: onSourceChange,
-                onKeyDown: (event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    loadFromInput();
-                  }
-                },
-              }),
-              h('button', { type: 'button', className: 'dvs-sourceChevron', title: t('chooseFile'), 'aria-label': t('chooseFile'), onClick: openPicker }, h(ChevronGlyph)),
-            ),
-            h('datalist', { id: 'dvs-preview-files' }, files.map((file) => h('option', { key: file.path, value: file.path }))),
-            h('button', { type: 'button', className: 'dvs-iconBtn', title: t('reload'), 'aria-label': t('reload'), onClick: reloadPreview }, h(ReloadGlyph)),
-            h(
-              'div',
-              { className: 'dvs-editToggle', role: 'group', 'aria-label': t('modeLabel') },
-              h('button', { type: 'button', 'data-active': mode === 'interact' ? 'true' : 'false', title: t('interactTitle'), onClick: () => setMode('interact') }, h(CursorGlyph), t('interact')),
-              h('button', { type: 'button', 'data-active': mode === 'edit' ? 'true' : 'false', title: t('editTitle'), onClick: () => setMode('edit') }, h(SparkleGlyph, { size: 12 }), t('edit')),
             ),
             h(
               'button',
               { type: 'button', className: 'dvs-sendAll', title: t('sendAllTitle'), disabled: unsent.length === 0, onClick: sendAll },
+              h(SendGlyph),
               `${t('sendAll')} (${unsent.length})`,
             ),
           ),
-          renderVersions(),
+          h('datalist', { id: 'dvs-preview-files' }, files.map((file) => h('option', { key: file.path, value: file.path }))),
         );
       };
 
@@ -1775,25 +2119,28 @@ window.__ModuleLoader__.load({
         notice !== null
           ? h('div', { className: 'dvs-notice', 'data-kind': notice.kind, role: notice.kind === 'error' ? 'alert' : 'status' }, notice.text)
           : null,
-        mode === 'edit' && source !== null && (source.kind === 'url' || inspectorMissing)
-          ? h('div', { className: 'dvs-hint' }, source.kind === 'url' ? t('crossOriginHint') : t('inspectorMissing'))
-          : null,
+        selectionHint !== null ? h('div', { className: 'dvs-hint' }, selectionHint) : null,
         h(
           'div',
-          { className: 'dvs-stageBox', ref: stageRef },
+          { className: 'dvs-stageBox' },
           h(
             'div',
-            { className: 'dvs-studio', 'data-manual': manual ? 'true' : 'false' },
-            empty
-              ? h(
-                  'div',
-                  { className: 'dvs-emptyCard' },
-                  h('strong', null, status === 'loading' ? t('loading') : t('emptyPrompt')),
-                  h('span', null, files.length === 0 && status !== 'loading' ? t('emptyNoFiles') : ''),
-                )
-              : responsive
-                ? renderViewport()
-                : h('div', { className: 'dvs-frameHost' }, renderViewport()),
+            { className: 'dvs-canvasCard', ref: stageRef },
+            h(
+              'div',
+              { className: 'dvs-studio', 'data-manual': manual ? 'true' : 'false', 'data-scroll': scrollable ? 'true' : 'false' },
+              empty
+                ? h(
+                    'div',
+                    { className: 'dvs-readyCard' },
+                    h(ReadyArt),
+                    h('h3', null, status === 'loading' ? t('loading') : t('visualReady')),
+                    h('p', null, status === 'loading' ? (draft || t('loading')) : t('visualReadyBody')),
+                  )
+                : responsive
+                  ? renderViewport()
+                  : h('div', { className: 'dvs-frameHost', style: frameHostStyle }, renderViewport()),
+            ),
           ),
         ),
         renderQueue(),
@@ -1801,11 +2148,21 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs'],
+      inject: ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'connection'],
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, { en: EN }), 'visual-sandbox: locale');
         const t = ctx.locale.bind(NS);
         sidebarService = ctx.sidebarRight;
+        try {
+          connectionService = ctx.get('connection') ?? null;
+        } catch (error) {
+          connectionService = null;
+        }
+        try {
+          rpcCall = connectionService?.rpc?.call === undefined ? null : connectionService.rpc.call.bind(connectionService.rpc);
+        } catch (error) {
+          rpcCall = null;
+        }
 
         ctx.effect(() => {
           const element = document.createElement('style');
@@ -1859,7 +2216,7 @@ window.__ModuleLoader__.load({
                 {
                   name: 'conversation.session.header.utilities',
                   id: 'visual-sandbox',
-                  order: -27,
+                  order: -40,
                   locale: NS,
                   label: () => t('openAction'),
                   inject: () => ({

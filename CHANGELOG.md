@@ -4,7 +4,49 @@ All notable changes to Visual Sandbox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2026-11-06
+## [1.4.0] - 2026-11-06
+
+### Changed
+
+- **Studio header redesign.** The panel now opens on a three-field header — **Device & Type**,
+  **Version**, and **Source (Workspace or URL)** — with an **Inspect / Edit UI / Select** action
+  row and a DeepSeek-blue **Send All** button. The previous sparkle mark is restored in the
+  panel title and the chat header.
+- **DeepSeek blue accent.** Active controls, focus rings, hover highlight, Send All, platform
+  tags and the empty-state illustration now use DeepSeek blue instead of purple.
+- **Integrated dropdown fields.** Device & Type and Version render their selected value inside
+  the same bordered field as Source; the native select is an invisible full-field overlay, so
+  the whole control is clickable and the text no longer sits in a separate native box.
+- **Preview scale.** Fixed frames can now be shown at Fit, 50%, 75%, 100%, 110%, 120%, 125%,
+  150% or 200%. Above the available canvas the studio pans and scrolls, which makes the Mobile
+  frame comfortable to inspect at actual size or closer. Responsive stays full-bleed.
+- **Desktop transport fix.** The panel state, source, version history and annotation sync now
+  travel over the Connection RPC bridge. The desktop renderer runs from `dsh-app://`, so its
+  same-origin HTTP fetch could not reach the Host routes and the workbench previously stayed
+  empty; the same Host operations are now dispatched through the authenticated carrier.
+- **Connection readiness.** Both halves declare `connection` as a dependency. The bridge no
+  longer depends on the service happening to be ready when the panel's `apply` runs, which
+  removes the intermittent 404/empty workbench after a restart.
+- **Source fallback.** If the saved preview path cannot be rendered, the panel clears it and
+  loads the newest discovered file, and a boot-time discovery that finds a newer workspace
+  file supersedes an older saved source. A missing file now returns a precise 404 instead of a
+  generic size error.
+- **Fit to width, centered.** Fit used the smaller of width and height, so a tall Mobile frame
+  shrank to roughly two thirds and a Desktop frame wasted vertical space. Fixed frames now fit
+  the available width, scroll vertically, and stay centered until they genuinely overflow.
+- **Dotted studio canvas.** The preview lives in a rounded, dotted canvas card with a centered
+  **Visual Sandbox Ready** card (browser/code illustration, title and guidance) before a source
+  loads.
+- **Version defaults to latest.** Workspace files list their real render history, newest first,
+  with the latest selected by default. With no history the field is disabled and shows
+  **Latest**.
+- **Select tool.** The control now offers only **Element** and **Region**, with **Element** as
+  the default and clear hints when element inspection is unavailable.
+
+### Notes
+
+- The reference layout's **Bulk** control and bottom **Screenshots** strip are intentionally
+  not part of the studio; the header, canvas, and empty state are the visual model.
 
 ### Added
 
