@@ -8,6 +8,7 @@
  * @module @local/dsh-visual-sandbox
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
@@ -46,6 +47,12 @@ const MAX_ASSET_BYTES = 1024 * 1024;
 const MAX_INLINE_TOTAL = 12 * 1024 * 1024;
 /** Prompt budget for annotation data. */
 const MAX_PROMPT_CHARS = 12000;
+/** Preview versions retained per Session. */
+const MAX_VERSIONS = 8;
+/** One version snapshot cap; larger documents stay previewable but are not recorded. */
+const MAX_VERSION_BYTES = 2 * 1024 * 1024;
+/** All version snapshots retained per Session. */
+const MAX_VERSION_TOTAL = 8 * 1024 * 1024;
 /** Browser-half connection window. */
 const CONNECTED_WINDOW_MS = 15000;
 /** Previewable extensions. */
@@ -96,6 +103,9 @@ function stateFor(sessionId) {
       openSeq: 0,
       clearSeq: 0,
       modeSeq: 0,
+      versions: [],
+      versionSeq: 0,
+      activeVersion: null,
       updatedAt: Date.now(),
       lastClientAt: 0,
     };
@@ -257,6 +267,48 @@ function applyClear(sessionId) {
   return { state, removed };
 }
 
+/** Stable key for one preview source. */
+function sourceKey(source) {
+  return source === null ? '' : `${source.kind}:${source.value}`;
+}
+
+/** Version summaries for the client; the HTML itself stays on the Host. */
+function versionsOf(state) {
+  return (state.versions ?? []).map((entry) => ({
+    id: entry.id,
+    at: entry.at,
+    title: entry.title,
+    source: entry.source,
+    bytes: entry.bytes,
+  }));
+}
+
+/**
+ * Record one rendered preview as the newest version. Identical HTML folds into the
+ * previous version instead of filling the list with duplicates.
+ */
+function recordVersion(state, source, title, html) {
+  if (!Array.isArray(state.versions)) state.versions = [];
+  const hash = createHash('sha256').update(html).digest('hex').slice(0, 16);
+  const last = state.versions[state.versions.length - 1];
+  if (last !== undefined && last.hash === hash && sourceKey(last.source) === sourceKey(source)) {
+    state.activeVersion = last.id;
+    return last;
+  }
+  if (html.length > MAX_VERSION_BYTES) return null;
+  state.versionSeq += 1;
+  const entry = { id: state.versionSeq, hash, at: Date.now(), title, source, html, bytes: html.length };
+  state.versions.push(entry);
+  let total = state.versions.reduce((sum, item) => sum + item.bytes, 0);
+  while (state.versions.length > MAX_VERSIONS || total > MAX_VERSION_TOTAL) {
+    if (state.versions.length === 0) break;
+    const dropped = state.versions.shift();
+    total -= dropped.bytes;
+  }
+  state.activeVersion = entry.id;
+  return entry;
+}
+
 /** JSON view shared by the state routes. */
 function viewOf(sessionId) {
   const state = stateFor(sessionId);
@@ -274,6 +326,8 @@ function viewOf(sessionId) {
     expandContainers: state.expandContainers,
     annotations: state.annotations,
     source: state.source,
+    versions: versionsOf(state),
+    activeVersion: state.activeVersion,
   };
 }
 
@@ -779,6 +833,24 @@ export function apply(ctx) {
       if (body === null) return jsonResponse(400, { error: 'invalid JSON body' });
       const sessionId = sessionIdOf(body.sessionId);
       if (sessionId !== null) stateFor(sessionId).lastClientAt = Date.now();
+      if (sessionId !== null && Number.isFinite(body.versionId)) {
+        const state = stateFor(sessionId);
+        const entry = (state.versions ?? []).find((item) => item.id === body.versionId);
+        if (entry === undefined) return jsonResponse(404, { error: 'that version is no longer available' });
+        state.activeVersion = entry.id;
+        state.source = entry.source;
+        state.updatedAt = Date.now();
+        return jsonResponse(200, {
+          ok: true,
+          restored: true,
+          html: entry.html,
+          path: entry.source.value,
+          title: entry.title,
+          version: entry.id,
+          versions: versionsOf(state),
+          bytes: entry.bytes,
+        });
+      }
       const root = admittedRoot(ctx, body.root) ?? defaultRootForSession(ctx, sessionId);
       if (root === null) return jsonResponse(403, { error: 'no admitted workspace root is available' });
       const absolute = insideRoot(root, body.path);
@@ -789,14 +861,20 @@ export function apply(ctx) {
       const html = readHtml(absolute);
       if (html === null) return jsonResponse(413, { error: 'the file is missing or larger than 4 MB' });
       const inlined = inlineDocument(html, resolve(absolute, '..'), root);
+      const path = relativePath(root, absolute);
+      const title = path.split('/').pop() ?? 'preview';
+      const state = sessionId === null ? null : stateFor(sessionId);
+      const version = state === null ? null : recordVersion(state, { kind: 'file', value: path, title }, title, inlined.html);
       return jsonResponse(200, {
         ok: true,
         html: inlined.html,
-        path: relativePath(root, absolute),
-        title: relativePath(root, absolute).split('/').pop() ?? 'preview',
+        path,
+        title,
         inlined: inlined.inlined,
         skipped: inlined.skipped,
         bytes: inlined.html.length,
+        version: version === null ? null : version.id,
+        versions: state === null ? [] : versionsOf(state),
       });
     },
     'visual-sandbox: render route',

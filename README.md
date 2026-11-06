@@ -1,7 +1,7 @@
 <img src="docs/banner.svg" alt="Visual Sandbox — annotatable UI preview for DeepSeek Harness" width="100%">
 
 <p align="center">
-  <a href="CHANGELOG.md"><img alt="version" src="https://img.shields.io/badge/version-1.2.0-3b82f6?style=flat-square"></a>
+  <a href="CHANGELOG.md"><img alt="version" src="https://img.shields.io/badge/version-1.3.0-3b82f6?style=flat-square"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-f59e0b?style=flat-square"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-DeepSeek%20Harness-0ea5e9?style=flat-square">
   <img alt="build" src="https://img.shields.io/badge/build-none%20needed-8b5cf6?style=flat-square">
@@ -25,7 +25,8 @@ touched.
 | **Edit UI** | Hover outlines with live selector tags, click to pin, popover for the note. `Enter` sends, `Shift+Enter` breaks the line. |
 | **Surgical by design** | `[#1 mobile: button.seg]` plus box, computed styles, HTML and text reach the agent with a standing rule: change only these targets. |
 | **Auto-detected sources** | The newest workspace `.html`/`.htm` file loads itself; localhost URLs work for dev servers, Expo web, Flutter web, Tauri or Electron renderers. |
-| **Open by default** | The panel reveals itself when a Session opens, and a `Preview` toggle in the composer forces it open or closed. |
+| **Open by default** | The panel reveals itself when a Session opens; the header sparkle toggles it shut and open again, always landing on the newest preview. |
+| **Version history** | Every distinct render of a preview file is kept as a version; a dropdown in the toolbar flips between them instantly. |
 | **No build step** | Plain ESM loaded by the Harness module loader. Edit a file, refresh the page. |
 
 ## Install
@@ -82,8 +83,19 @@ appears as *Visual Sandbox* in the right sidebar's guide.
 4. **Write the note** and press Enter. Repeat for each block that is wrong.
 5. **Send All**, add context in the chat, and let the agent make the surgical edit.
 
-The panel can also be opened from the conversation-header sparkle, from the composer's
-**Preview** button, or by the agent through `open_visual_sandbox`.
+The panel can also be opened from the header sparkle — the same button closes it again — or
+by the agent through `open_visual_sandbox`. Opening always restores the newest preview for
+the Session, so the workbench never lands empty.
+
+### Versions
+
+Every render of a preview file is captured as a version: the first load, each agent refresh,
+each re-read from disk. Identical documents fold into the previous entry instead of piling
+up. Once a Session has two or more versions, a **Version** dropdown appears under the source
+bar; picking one swaps the preview immediately, without touching the file on disk.
+
+Snapshots live in Host memory for the process lifetime, capped at 8 versions / 8 MB per
+Session; documents larger than 2 MB stay previewable but are not recorded.
 
 ### What an annotation records
 
@@ -134,20 +146,21 @@ only those targets, then call `refresh_visual_sandbox`.
 ## Architecture
 
 ```
-client.js ── right sidebar tab ── toolbar · frames · preview iframe · annotation queue
-          └─ chat composer ─────── Preview toggle
+client.js ── right sidebar tab ── toolbar · frames · versions · preview iframe · queue
+          └─ header sparkle ───── toggle the panel
 
 preview iframe (sandboxed, opaque origin)
    └─ injected inspector  ── postMessage ──▶  panel
 
 index.js ── /api/plugin/visual-sandbox/{state,render,discover}
          ── host tools + per-agent prompt section + workspace inliner
+         ── version snapshots (sha-256 deduped, capped)
 ```
 
 | File | Role |
 | --- | --- |
-| `index.js` | Host half: Session state, the three routes, the five tools, prompt section, HTML inliner, file discovery. |
-| `client.js` | Browser half: frames, source bar, studio canvas, inspector bridge, annotation tray, composer toggle, host sync. |
+| `index.js` | Host half: Session state, the three routes, the five tools, prompt section, HTML inliner, file discovery, version snapshots. |
+| `client.js` | Browser half: frames, source bar, version dropdown, studio canvas, inspector bridge, annotation tray, header toggle, host sync. |
 | `cordis.patch.yml` | Registers the plugin under the `dsh-visual-sandbox` bundle id. |
 | `locale/{en,zh}.json` | Plugin inventory title and description. |
 | `icon.svg` | The mark used by the sidebar guide. |

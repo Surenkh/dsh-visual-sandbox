@@ -4,6 +4,26 @@ All notable changes to Visual Sandbox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-11-06
+
+### Added
+
+- **Version history** — every distinct render of a preview file is snapshotted on the
+  Host (sha-256 deduped, 8 versions / 8 MB per Session). A `Version` dropdown under the
+  source bar flips the preview between them instantly, without touching disk.
+- The version list travels in the state payload, so the dropdown survives a panel
+  remount and follows agent-triggered renders.
+
+### Changed
+
+- **The composer `Preview` button is gone.** The header sparkle is now the single
+  control: it opens the panel, and closes it when the panel is showing.
+
+### Fixed
+
+- Opening the panel always lands on the newest preview for the Session instead of
+  restoring a stale source, and an empty workbench auto-loads the newest workspace file.
+
 ## [1.2.0] - 2026-11-05
 
 ### Added

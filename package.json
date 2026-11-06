@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-visual-sandbox",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Live, annotatable UI preview for DeepSeek Harness: four preview frames, element-level Edit UI, and exact UI targets delivered to the agent.",

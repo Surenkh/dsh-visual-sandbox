@@ -101,9 +101,8 @@ window.__ModuleLoader__.load({
       agentSwitched: 'Viewport switched by the agent.',
       capReached: 'At most 30 annotations are supported.',
       frameTitle: 'UI preview',
-      trigger: 'Preview',
-      triggerShow: 'Show the Visual Sandbox panel',
-      triggerHide: 'Hide the Visual Sandbox panel',
+      closeTitle: 'Hide the Visual Sandbox workbench',
+      versionLabel: 'Version',
     };
 
     const CSS = `
@@ -138,11 +137,11 @@ window.__ModuleLoader__.load({
 .dvs-sendAll{height:30px;box-sizing:border-box;padding:0 8px;border:.5px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent);border-radius:6px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);font:inherit;font-size:10px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex:none}
 .dvs-sendAll:disabled{opacity:.4;cursor:default}
 .dvs-sendAll:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
-.dvs-trigger{display:inline-flex;align-items:center;gap:5px;height:30px;box-sizing:border-box;padding:0 9px;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex:none}
-.dvs-trigger:hover{color:var(--dsw-alias-label-primary);background:color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent)}
-.dvs-trigger[data-active=true]{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent);color:var(--dsw-alias-brand-primary)}
-.dvs-trigger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
-.dvs-triggerText{display:inline;max-width:72px;overflow:hidden;text-overflow:ellipsis}
+.dvs-btn[data-active=true]{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent);color:var(--dsw-alias-brand-primary)}
+.dvs-versions{display:flex;align-items:center;gap:6px;min-width:0}
+.dvs-versionsLabel{flex:none;color:var(--dsw-alias-label-secondary);font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.dvs-versionsSelect{flex:1 1 auto;min-width:0;height:26px;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 6px;outline:none}
+.dvs-versionsSelect:focus{border-color:var(--dsw-alias-brand-primary)}
 .dvs-notice{flex:none;padding:5px 10px;border-bottom:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);font-size:11px;line-height:1.5;overflow-wrap:anywhere}
 .dvs-notice[data-kind=error]{color:var(--dsw-alias-state-error-primary)}
 .dvs-hint{flex:none;padding:4px 10px;color:var(--dsw-alias-label-secondary);font-size:10.5px;line-height:1.5;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
@@ -566,9 +565,44 @@ window.__ModuleLoader__.load({
       return `[#${annotation.id} ${annotation.platformMode}: ${annotation.selector}]`;
     }
 
-    /** Header entry. */
+    /** Header entry: one button that opens the workbench, and closes it again. */
     function OpenSandboxButton(props) {
       const t = props.t;
+      const sessionId = typeof props.sessionId === 'string' ? props.sessionId : '';
+      const [visible, setVisible] = React.useState(false);
+
+      const isVisible = () => {
+        const sidebar = sidebarService;
+        if (sidebar === null || sessionId.length === 0) return false;
+        try {
+          const mine = sidebar.tabsIn(sessionId).filter((tab) => tab.kind === KIND);
+          return mine.length > 0 && sidebar.isExpanded();
+        } catch (error) {
+          return false;
+        }
+      };
+
+      // Mirror the panel's committed state so the button can close what it opened.
+      React.useEffect(() => {
+        let stopped = false;
+        const sync = () => {
+          if (!stopped) setVisible(isVisible());
+        };
+        sync();
+        const timer = window.setInterval(sync, 1200);
+        const wake = () => {
+          if (document.visibilityState === 'visible') sync();
+        };
+        document.addEventListener('visibilitychange', wake);
+        window.addEventListener('focus', wake);
+        return () => {
+          stopped = true;
+          window.clearInterval(timer);
+          document.removeEventListener('visibilitychange', wake);
+          window.removeEventListener('focus', wake);
+        };
+      }, [sessionId]);
+
       React.useEffect(() => {
         if (typeof props.sessionId !== 'string' || props.sessionId.length === 0) return undefined;
         const storageKey = `dsh-visual-sandbox:open:${props.sessionId}`;
@@ -605,20 +639,40 @@ window.__ModuleLoader__.load({
           document.removeEventListener('visibilitychange', wake);
         };
       }, [props.sessionId]);
+
+      const toggle = () => {
+        const sidebar = sidebarService;
+        if (sidebar === null || sessionId.length === 0) {
+          try {
+            props.openSandbox();
+          } catch (error) {
+            console.error('[visual-sandbox] panel open failed', error);
+          }
+          return;
+        }
+        try {
+          if (isVisible()) sidebar.toggleExpanded();
+          else {
+            sidebar.openTab(KIND);
+            ensureExpanded(sidebar);
+          }
+        } catch (error) {
+          console.error('[visual-sandbox] panel toggle failed', error);
+        }
+        window.setTimeout(() => setVisible(isVisible()), 160);
+      };
+
+      const title = visible ? t('closeTitle') : t('openTitle');
       return h(
         'button',
         {
           type: 'button',
           className: 'dvs-btn',
-          title: t('openTitle'),
-          'aria-label': t('openTitle'),
-          onClick: () => {
-            try {
-              props.openSandbox();
-            } catch (error) {
-              console.error('[visual-sandbox] panel open failed', error);
-            }
-          },
+          'data-active': visible ? 'true' : 'false',
+          'aria-pressed': visible ? 'true' : 'false',
+          title,
+          'aria-label': title,
+          onClick: toggle,
         },
         h(SparkleGlyph, { size: 14 }),
       );
@@ -631,84 +685,6 @@ window.__ModuleLoader__.load({
           if (sidebar?.isExpanded?.() === false) sidebar.toggleExpanded();
         } catch (error) {}
       }, 420);
-    }
-
-    /** Chat-composer entry: reveal or hide the right panel. */
-    function SandboxToggle(props) {
-      const t = props.t;
-      const given = typeof props.sessionId === 'string' ? props.sessionId : '';
-      const [visible, setVisible] = React.useState(false);
-
-      const currentSession = () => {
-        if (given.length > 0) return given;
-        const mounted = sidebarService?.mounted?.getSnapshot?.();
-        return typeof mounted === 'string' ? mounted : '';
-      };
-
-      const isVisible = () => {
-        const sidebar = sidebarService;
-        const sessionId = currentSession();
-        if (sidebar === null || sessionId.length === 0) return false;
-        try {
-          const mine = sidebar.tabsIn(sessionId).filter((tab) => tab.kind === KIND);
-          return mine.length > 0 && sidebar.isExpanded();
-        } catch (error) {
-          return false;
-        }
-      };
-
-      React.useEffect(() => {
-        let stopped = false;
-        const sync = () => {
-          if (!stopped) setVisible(isVisible());
-        };
-        sync();
-        const timer = window.setInterval(sync, 1200);
-        const wake = () => {
-          if (document.visibilityState === 'visible') sync();
-        };
-        document.addEventListener('visibilitychange', wake);
-        window.addEventListener('focus', wake);
-        return () => {
-          stopped = true;
-          window.clearInterval(timer);
-          document.removeEventListener('visibilitychange', wake);
-          window.removeEventListener('focus', wake);
-        };
-      }, [given]);
-
-      const toggle = () => {
-        const sidebar = sidebarService;
-        const sessionId = currentSession();
-        if (sidebar === null || sessionId.length === 0) return;
-        try {
-          const mine = sidebar.tabsIn(sessionId).filter((tab) => tab.kind === KIND);
-          if (mine.length > 0) sidebar.toggleExpanded();
-          else {
-            sidebar.openTab(KIND);
-            ensureExpanded(sidebar);
-          }
-        } catch (error) {
-          console.error('[visual-sandbox] panel toggle failed', error);
-        }
-        window.setTimeout(() => setVisible(isVisible()), 140);
-      };
-
-      const title = visible ? t('triggerHide') : t('triggerShow');
-      return h(
-        'button',
-        {
-          type: 'button',
-          className: 'dvs-trigger',
-          'data-active': visible ? 'true' : 'false',
-          'aria-pressed': visible ? 'true' : 'false',
-          title,
-          'aria-label': title,
-          onClick: toggle,
-        },
-        h(SparkleGlyph, { size: 13 }),
-        h('span', { className: 'dvs-triggerText' }, t('trigger')),
-      );
     }
 
     /** Tab title. */
@@ -733,6 +709,8 @@ window.__ModuleLoader__.load({
       const [zoom, setZoom] = React.useState('fit');
       const [expand, setExpand] = React.useState(false);
       const [rawHtml, setRawHtml] = React.useState(null);
+      const [versions, setVersions] = React.useState([]);
+      const [activeVersion, setActiveVersion] = React.useState(null);
       const [reloadKey, setReloadKey] = React.useState(0);
       const [status, setStatus] = React.useState('idle');
       const [notice, setNotice] = React.useState(null);
@@ -758,6 +736,7 @@ window.__ModuleLoader__.load({
       const skipSync = React.useRef(false);
       const seq = React.useRef({ refresh: null, clear: null, open: null, mode: null });
       const booted = React.useRef(false);
+      const versionKey = React.useRef('');
 
       const workspace = typeof props.useWorkspaces === 'function'
         ? props.useWorkspaces((snapshot) => {
@@ -829,6 +808,40 @@ window.__ModuleLoader__.load({
         live.current.source = next;
         setSource(next);
       };
+      const applyVersions = (response) => {
+        if (response === null || response === undefined) return;
+        const list = Array.isArray(response.versions) ? response.versions : [];
+        const key = list.map((item) => item.id).join(',');
+        if (key !== versionKey.current) {
+          versionKey.current = key;
+          setVersions(list);
+        }
+        if (typeof response.version === 'number') setActiveVersion(response.version);
+        else if (typeof response.activeVersion === 'number') setActiveVersion(response.activeVersion);
+      };
+
+      /** Ask the Host for a stored version and swap the preview to it. */
+      const selectVersion = async (value) => {
+        const id = Number(value);
+        if (!Number.isFinite(id)) return;
+        setStatus('loading');
+        const response = await postJson(ROUTE_RENDER, { sessionId: live.current.sessionId, versionId: id });
+        if (response === null || response.ok !== true) {
+          setStatus('ready');
+          notify('error', response?.error ?? t('loadFailed'));
+          return;
+        }
+        adoptSource({ kind: 'file', value: response.path, title: response.title }, { preserve: true });
+        setDraft(response.path);
+        setRawHtml(response.html);
+        applyVersions(response);
+        setFrameReady(false);
+        setHover(null);
+        setPinBoxes({});
+        setReloadKey((current) => current + 1);
+        setStatus('ready');
+      };
+
       const loadFile = async (path, options = {}) => {
         const clean = String(path ?? '').replace(/\\/gu, '/').replace(/^\.?\//u, '').trim();
         if (clean.length === 0) return false;
@@ -847,6 +860,7 @@ window.__ModuleLoader__.load({
         adoptSource({ kind: 'file', value: response.path, title: response.title }, options);
         setDraft(response.path);
         setRawHtml(response.html);
+        applyVersions(response);
         setReloadKey((value) => value + 1);
         setStatus('ready');
         return true;
@@ -983,6 +997,7 @@ window.__ModuleLoader__.load({
           if (cancelled) return;
         let hasInitialSource = false;
           if (remote !== null && remote.ok === true) {
+            applyVersions(remote);
             seq.current = {
               refresh: remote.refreshSeq ?? 0,
               clear: remote.clearSeq ?? 0,
@@ -1030,6 +1045,7 @@ window.__ModuleLoader__.load({
           if (stopped || document.visibilityState !== 'visible') return;
           const remote = await getJson(`${ROUTE_STATE}?sessionId=${encodeURIComponent(sessionId)}`);
           if (stopped || remote === null || remote.ok !== true) return;
+          applyVersions(remote);
           if (seq.current.refresh === null) {
             seq.current = { refresh: remote.refreshSeq ?? 0, clear: remote.clearSeq ?? 0, open: remote.openSeq ?? 0, mode: remote.modeSeq ?? 0 };
             return;
@@ -1449,6 +1465,31 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const versionLabel = (entry) => {
+        const stamp = new Date(entry.at);
+        const time = `${String(stamp.getHours()).padStart(2, '0')}:${String(stamp.getMinutes()).padStart(2, '0')}`;
+        return `v${entry.id} - ${time} - ${entry.title}`;
+      };
+
+      const renderVersions = () => {
+        if (versions.length < 2) return null;
+        return h(
+          'div',
+          { className: 'dvs-versions' },
+          h('span', { className: 'dvs-versionsLabel' }, t('versionLabel')),
+          h(
+            'select',
+            {
+              className: 'dvs-versionsSelect',
+              value: activeVersion === null ? '' : String(activeVersion),
+              'aria-label': t('versionLabel'),
+              onChange: (event) => void selectVersion(event.target.value),
+            },
+            versions.map((entry) => h('option', { key: entry.id, value: String(entry.id) }, versionLabel(entry))),
+          ),
+        );
+      };
+
       const renderToolbar = () => {
         const fixed = metrics;
         const meta = responsive
@@ -1534,6 +1575,7 @@ window.__ModuleLoader__.load({
               `${t('sendAll')} (${unsent.length})`,
             ),
           ),
+          renderVersions(),
         );
       };
 
@@ -1830,23 +1872,6 @@ window.__ModuleLoader__.load({
               ),
             ),
           'visual-sandbox: toolbar entry',
-        );
-
-        ctx.effect(
-          () =>
-            ctx.slots.inject('conversation.input.right', () =>
-              ctx.slots.register(
-                {
-                  name: 'conversation.input.right',
-                  id: 'visual-sandbox-toggle',
-                  order: -20,
-                  locale: NS,
-                  label: () => t('trigger'),
-                },
-                SandboxToggle,
-              ),
-            ),
-          'visual-sandbox: composer toggle',
         );
 
         // The panel is the point of the plugin, so it opens itself once a Session is
